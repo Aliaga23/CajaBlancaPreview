@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@types/react-syntax-highlighter": "^15.5.13",
+    "html-to-image": "^1.11.13",
     "lucide-react": "^0.556.0",
     "openai": "^6.10.0",
     "react": "^19.2.0",

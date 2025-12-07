@@ -1,5 +1,7 @@
-import React, { useMemo } from 'react';
-import ReactFlow from 'reactflow';
+import React, { useMemo, useCallback, useRef } from 'react';
+import ReactFlow, { ReactFlowProvider, useReactFlow, getRectOfNodes, getTransformForBounds } from 'reactflow';
+import { toPng } from 'html-to-image';
+import { Download } from 'lucide-react';
 import 'reactflow/dist/style.css';
 import type { FlowNode, FlowEdge } from '../types';
 
@@ -8,7 +10,10 @@ interface FlowDiagramProps {
   edges: FlowEdge[];
 }
 
-export const FlowDiagram: React.FC<FlowDiagramProps> = ({ nodes, edges }) => {
+const FlowDiagramInner: React.FC<FlowDiagramProps> = ({ nodes, edges }) => {
+  const { getNodes } = useReactFlow();
+  const flowRef = useRef<HTMLDivElement>(null);
+
   const reactFlowNodes = useMemo(() => {
     if (!nodes || nodes.length === 0) return [];
     return nodes.map((node) => ({
@@ -34,7 +39,6 @@ export const FlowDiagram: React.FC<FlowDiagramProps> = ({ nodes, edges }) => {
     if (!edges || edges.length === 0) return [];
     const seenIds = new Set<string>();
     return edges.map((edge, index) => {
-      // Generar ID único para evitar duplicados
       let uniqueId = edge.id || `e${edge.from}-${edge.to}`;
       if (seenIds.has(uniqueId)) {
         uniqueId = `${uniqueId}-${index}`;
@@ -46,7 +50,7 @@ export const FlowDiagram: React.FC<FlowDiagramProps> = ({ nodes, edges }) => {
         source: edge.from,
         target: edge.to,
         label: edge.label || '',
-        animated: true,
+        animated: false,
         style: {
           stroke: '#333',
           strokeWidth: 2
@@ -55,9 +59,67 @@ export const FlowDiagram: React.FC<FlowDiagramProps> = ({ nodes, edges }) => {
     });
   }, [edges]);
 
+  const downloadImage = useCallback(() => {
+    const nodesBounds = getRectOfNodes(getNodes());
+    const imageWidth = nodesBounds.width + 100;
+    const imageHeight = nodesBounds.height + 100;
+    const transform = getTransformForBounds(nodesBounds, imageWidth, imageHeight, 0.5, 2);
+
+    const viewport = document.querySelector('.react-flow__viewport') as HTMLElement;
+    if (viewport) {
+      toPng(viewport, {
+        backgroundColor: '#fafafa',
+        width: imageWidth,
+        height: imageHeight,
+        style: {
+          width: `${imageWidth}px`,
+          height: `${imageHeight}px`,
+          transform: `translate(${transform[0]}px, ${transform[1]}px) scale(${transform[2]})`,
+        },
+      }).then((dataUrl) => {
+        const link = document.createElement('a');
+        link.download = 'diagrama-flujo.png';
+        link.href = dataUrl;
+        link.click();
+      });
+    }
+  }, [getNodes]);
+
   return (
-    <div style={{ height: '700px', border: '1px solid #ddd', borderRadius: '8px', background: '#fafafa' }}>
-      <ReactFlow nodes={reactFlowNodes} edges={reactFlowEdges} fitView />
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={downloadImage}
+        style={{
+          position: 'absolute',
+          top: '10px',
+          right: '10px',
+          zIndex: 10,
+          padding: '8px 16px',
+          backgroundColor: '#333',
+          color: 'white',
+          border: 'none',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          fontSize: '14px'
+        }}
+      >
+        <Download size={16} />
+        Descargar PNG
+      </button>
+      <div ref={flowRef} style={{ height: '700px', border: '1px solid #ddd', borderRadius: '8px', background: '#fafafa' }}>
+        <ReactFlow nodes={reactFlowNodes} edges={reactFlowEdges} fitView />
+      </div>
     </div>
+  );
+};
+
+export const FlowDiagram: React.FC<FlowDiagramProps> = ({ nodes, edges }) => {
+  return (
+    <ReactFlowProvider>
+      <FlowDiagramInner nodes={nodes} edges={edges} />
+    </ReactFlowProvider>
   );
 };

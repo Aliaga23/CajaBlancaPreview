@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { CodeAnalyzer } from './services/openai';
 import { CodeDisplay } from './components/CodeDisplay';
 import { FlowDiagram } from './components/FlowDiagram';
+import { FlowEditor } from './components/FlowEditor';
 import { PathTable } from './components/PathTable';
 import type { AnalysisResult } from './types';
-import { Code, GitBranch, Table, Loader2, Key } from 'lucide-react';
+import { Code, GitBranch, Table, Loader2, Key, Edit3 } from 'lucide-react';
 import 'reactflow/dist/style.css';
 import './App.css';
 
@@ -14,7 +15,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'code' | 'flow' | 'table'>('code');
+  const [activeTab, setActiveTab] = useState<'code' | 'flow' | 'table' | 'editor'>('code');
 
   // Código de ejemplo
   const exampleCode = `async function createUsuario(data: any, tenantID: any) {
@@ -152,6 +153,13 @@ function App() {
                 <Table size={18} />
                 Tabla de Caminos
               </button>
+              <button
+                className={`tab ${activeTab === 'editor' ? 'active' : ''}`}
+                onClick={() => setActiveTab('editor')}
+              >
+                <Edit3 size={18} />
+                Editor Manual
+              </button>
             </div>
 
             <div className="tab-content">
@@ -176,6 +184,15 @@ function App() {
                 <div>
                   <h3>Tabla de Caminos de Prueba</h3>
                   <PathTable paths={result.pathTable} />
+                </div>
+              )}
+
+              {activeTab === 'editor' && (
+                <div>
+                  <h3>Editor Manual de Diagrama</h3>
+                  <div style={{ height: '650px', border: '1px solid #ddd', borderRadius: '8px', overflow: 'hidden' }}>
+                    <FlowEditor />
+                  </div>
                 </div>
               )}
             </div>
