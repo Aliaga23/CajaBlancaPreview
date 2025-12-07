@@ -4,6 +4,9 @@ import ReactFlow, {
   addEdge,
   useNodesState,
   useEdgesState,
+  useReactFlow,
+  getNodesBounds,
+  getViewportForBounds,
   Controls,
   Background,
   type Connection,
@@ -14,6 +17,9 @@ import ReactFlow, {
 import { toPng } from 'html-to-image';
 import { Download, Plus, Trash2 } from 'lucide-react';
 import 'reactflow/dist/style.css';
+
+const imageWidth = 1024;
+const imageHeight = 768;
 
 const nodeStyle = {
   background: 'white',
@@ -37,6 +43,7 @@ const FlowEditorInner: React.FC = () => {
   const [nodeLabel, setNodeLabel] = useState('1');
   const [edgeLabel, setEdgeLabel] = useState('');
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
+  const { getNodes } = useReactFlow();
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -99,20 +106,44 @@ const FlowEditorInner: React.FC = () => {
   }, [setNodes]);
 
   const downloadImage = useCallback(() => {
-    const viewport = document.querySelector('.react-flow__viewport') as HTMLElement;
-    if (viewport) {
-      toPng(viewport, {
-        backgroundColor: '#fafafa',
-        width: 800,
-        height: 600,
-      }).then((dataUrl) => {
-        const link = document.createElement('a');
-        link.download = 'diagrama-manual.png';
-        link.href = dataUrl;
-        link.click();
-      });
-    }
-  }, []);
+    const nodesBounds = getNodesBounds(getNodes());
+    const viewport = getViewportForBounds(nodesBounds, imageWidth, imageHeight, 0.5, 2);
+
+    // Ocultar handles y edge labels background directamente
+    const handles = document.querySelectorAll('.react-flow__handle');
+    const edgeLabelBgs = document.querySelectorAll('.react-flow__edge-textbg');
+    const controls = document.querySelector('.react-flow__controls') as HTMLElement;
+    
+    handles.forEach((el) => (el as HTMLElement).style.display = 'none');
+    edgeLabelBgs.forEach((el) => (el as HTMLElement).style.display = 'none');
+    if (controls) controls.style.display = 'none';
+
+    toPng(document.querySelector('.react-flow__viewport') as HTMLElement, {
+      backgroundColor: '#ffffff',
+      width: imageWidth,
+      height: imageHeight,
+      style: {
+        width: String(imageWidth),
+        height: String(imageHeight),
+        transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+      },
+    }).then((dataUrl) => {
+      // Restaurar
+      handles.forEach((el) => (el as HTMLElement).style.display = '');
+      edgeLabelBgs.forEach((el) => (el as HTMLElement).style.display = '');
+      if (controls) controls.style.display = '';
+      
+      const link = document.createElement('a');
+      link.download = 'diagrama-manual.png';
+      link.href = dataUrl;
+      link.click();
+    }).catch(() => {
+      // Restaurar en caso de error
+      handles.forEach((el) => (el as HTMLElement).style.display = '');
+      edgeLabelBgs.forEach((el) => (el as HTMLElement).style.display = '');
+      if (controls) controls.style.display = '';
+    });
+  }, [getNodes]);
 
   const clearAll = useCallback(() => {
     if (confirm('¿Borrar todo el diagrama?')) {
