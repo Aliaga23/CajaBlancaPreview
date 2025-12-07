@@ -12,58 +12,54 @@ export class CodeAnalyzer {
   }
 
   async analyzeCode(code: string): Promise<AnalysisResult> {
-    const prompt = `Eres un experto en testing de caja blanca. Analiza el código y genera:
+    const prompt = `Analiza el código para testing de caja blanca y genera:
 
-1. CÓDIGO NUMERADO - REGLAS DE NUMERACIÓN PARA CAJA BLANCA:
-   
-   REGLA PRINCIPAL: La numeración NO es secuencial. Sigue el ORDEN DE EJECUCIÓN:
-   
-   - Numera líneas ejecutables desde el inicio hasta encontrar un IF
-   - El IF es un NODO DE DECISIÓN: la línea anterior al IF es donde se bifurca
-   - Después del nodo de decisión:
-     a) Primero numera TODAS las líneas del bloque TRUE (if) hasta su cierre
-     b) Luego numera TODAS las líneas del bloque FALSE (else) 
-     c) Los números del else son MENORES que los del bloque if porque van después en la numeración de ejecución pero representan el camino alternativo
+1. CÓDIGO NUMERADO (orden de ejecución, NO secuencial):
+   - Numera siguiendo el FLUJO DE EJECUCIÓN del código
+   - Para IF/ELSE:
+     * Numera las líneas antes del if normalmente
+     * La línea del if es el nodo de decisión
+     * Luego numera TODO el bloque TRUE (if) completo
+     * Después numera TODO el bloque FALSE (else)
    - Para TRY/CATCH:
-     a) Numera el bloque try completo
-     b) Luego numera el bloque catch con números mayores
-   
-   IMPORTANTE: 
-   - La línea "if (condición) {" NO se numera, el nodo de decisión es la línea anterior
-   - La línea "else {" SÍ se numera como inicio del camino alternativo
-   - La línea "catch {" SÍ se numera como inicio del manejo de errores
+     * Numera todo el bloque try primero
+     * Luego numera el bloque catch
+   - Los números NO van en orden físico de líneas, van en orden de ejecución
+   - Formato: "N. código"
 
 2. DIAGRAMA DE FLUJO:
-   - Un nodo circular por cada número de línea
-   - Distribución en columnas:
+   - Un nodo por cada número
+   - Posiciones en columnas:
      * x=250: Flujo principal y rama TRUE
-     * x=100: Rama FALSE/else (a la izquierda)
-     * x=400: Rama catch/error (a la derecha)
-   - y aumenta 80px por cada nodo en su columna
-   - Nodo "fin" donde convergen todos los caminos
-   - Edges con etiquetas en bifurcaciones (condición true/false, Exception)
+     * x=100: Rama FALSE/else
+     * x=400: Rama catch
+     * y incrementa 80px por nodo en cada columna
+   - Conexiones simples:
+     * Nodos consecutivos del mismo camino conectados
+     * En el if: una conexión a TRUE, otra a FALSE con etiquetas
+     * Solo UNA conexión del try al catch (no de cada línea)
+   - Nodo "fin" al final donde convergen los caminos
 
 3. TABLA DE CAMINOS:
-   - C1: Happy path (rama true de todas las condiciones)
-   - C2, C3...: Caminos con ramas else
-   - Cn: Caminos de error (catch)
-   - Incluir: recorrido de nodos, entrada de prueba, salida esperada
+   - C1: camino TRUE (happy path)
+   - C2: camino FALSE (else)
+   - C3: camino catch (si hay try/catch)
 
 Código:
 \`\`\`
 ${code}
 \`\`\`
 
-JSON de respuesta:
+Responde SOLO JSON:
 {
-  "numberedCode": "código con números N. al inicio de cada línea ejecutable",
+  "numberedCode": "código numerado según orden de ejecución",
   "flowNodes": [{"id": "1", "type": "start", "label": "1", "position": {"x": 250, "y": 0}}],
   "flowEdges": [{"id": "e1-2", "from": "1", "to": "2", "label": ""}],
-  "pathTable": [{"camino": "C1", "recorrido": "1,2,3", "entrada": "desc", "salida": "resultado"}]
+  "pathTable": [{"camino": "C1", "recorrido": "1,2,3", "entrada": "datos", "salida": "resultado"}]
 }`;
 
     const response = await this.openai.chat.completions.create({
-      model: 'o1',
+      model: 'gpt-4o',
       messages: [
         {
           role: 'system',
@@ -74,6 +70,7 @@ JSON de respuesta:
           content: prompt
         }
       ],
+      temperature: 0.6,
       response_format: { type: "json_object" }
     });
 
